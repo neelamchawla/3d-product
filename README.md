@@ -26,7 +26,7 @@ npm i dotenv
 npm i openai
 
 <!-- upload server side working on render.com -->
-<!-- 1. delete package.json.lock -->
+<!-- 1. delete package-lock.json -->
 <!-- 2. add .js behind index -->
 "scripts": {
     "start": "nodemon index.js"

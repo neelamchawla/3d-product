@@ -32,6 +32,7 @@ npm i openai
     "start": "nodemon index.js"
     }
 https://dashboard.render.com/
+https://dashboard.render.com/web/srv-cihbrh5ph6erq6hf1jh0/deploys/dep-cihc86d9aq012eshr800
 
 <!-- got error regarding error mongoose@7.3.1: The engine "node" is incompatible with this module. Expected version ">=14.20.1". Got "14.17.0" -->
 npm update

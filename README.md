@@ -34,7 +34,7 @@ npm i openai
 https://dashboard.render.com/
 
 <!-- got error regarding error mongoose@7.3.1: The engine "node" is incompatible with this module. Expected version ">=14.20.1". Got "14.17.0" -->
-npm install node@14.20.1 --save-exact
+npm update
 
 
 <!-- generate new key -->

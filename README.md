@@ -25,6 +25,18 @@ npm install cloudinary cors express mongoose nodemon
 npm i dotenv
 npm i openai
 
+<!-- upload server side working on render.com -->
+<!-- 1. delete package.json.lock -->
+<!-- 2. add .js behind index -->
+"scripts": {
+    "start": "nodemon index.js"
+    }
+https://dashboard.render.com/
+
+<!-- got error regarding error mongoose@7.3.1: The engine "node" is incompatible with this module. Expected version ">=14.20.1". Got "14.17.0" -->
+npm install node@14.20.1 --save-exact
+
+
 <!-- generate new key -->
 https://platform.openai.com/account/api-keys
 <!-- add inside env file -->

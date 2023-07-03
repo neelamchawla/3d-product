@@ -8,11 +8,12 @@ import CameraRig from './CameraRig';
 const CanvasModel = () => {
   return (
     <Canvas
-      shadows
-      camera={{ position: [0, 0, 0], fov: 25 }}
-      gl={{ preserveDrawingBuffer: true }}
-      className="w-full max-w-full h-full transition-all ease-in"
+    shadows
+    camera={{ position: [0, 0, 0], fov: 25 }}
+    gl={{ preserveDrawingBuffer: true }}
+    className="w-full max-w-full h-full transition-all ease-in"
     >
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <ambientLight intensity={0.5} />
       <Environment preset="city" />
 

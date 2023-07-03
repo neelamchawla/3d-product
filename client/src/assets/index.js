@@ -3,7 +3,11 @@ import fileIcon from "./file.png";
 import swatch from "./swatch.png";
 import download from "./download.png";
 
+import pmndrsLogoShirt from "./pmndrs.png";
+import reactLogoShirt from "./react.png";
+import threejsLogoShirt from "./threejs.png";
+
 import logoShirt from "./logo-tshirt.png";
 import stylishShirt from "./stylish-tshirt.png";
 
-export { ai, fileIcon, swatch, download, logoShirt, stylishShirt };
+export { ai, fileIcon, swatch, download, pmndrsLogoShirt, reactLogoShirt, threejsLogoShirt, stylishShirt, logoShirt };

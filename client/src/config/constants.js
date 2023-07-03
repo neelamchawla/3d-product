@@ -1,4 +1,4 @@
-import { swatch, fileIcon, ai, logoShirt, stylishShirt } from "../assets";
+import { swatch, fileIcon, ai, pmndrsLogoShirt, reactLogoShirt, threejsLogoShirt, stylishShirt, logoShirt } from "../assets";
 
 export const EditorTabs = [
   {
@@ -16,6 +16,18 @@ export const EditorTabs = [
 ];
 
 export const FilterTabs = [
+  {
+    name: "reactLogoShirt",
+    icon: reactLogoShirt,
+  },
+  {
+    name: "threejsLogoShirt",
+    icon: threejsLogoShirt,
+  },
+  {
+    name: "pmndrsLogoShirt",
+    icon: pmndrsLogoShirt,
+  },
   {
     name: "logoShirt",
     icon: logoShirt,

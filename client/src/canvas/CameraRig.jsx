@@ -1,10 +1,11 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { easing } from 'maath';
 import { useSnapshot } from 'valtio';
 
 import state from '../store';
 
+// eslint-disable-next-line react/prop-types
 const CameraRig = ({ children }) => {
   const group = useRef();
   const snap = useSnapshot(state);
@@ -29,7 +30,11 @@ const CameraRig = ({ children }) => {
     // set the model rotation smoothly
     easing.dampE(
       group.current.rotation,
-      [state.pointer.y / 10, -state.pointer.x / 5, 0],
+      [
+        -state.pointer.y / 5,
+        state.pointer.x / 2,
+        0
+      ],
       0.25,
       delta
     )

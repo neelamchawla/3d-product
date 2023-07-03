@@ -72,20 +72,24 @@ const Customizer = () => {
       setGeneratingImg(true);
 
       // const response = await fetch("http://localhost:8080/api/v1/dalle", {
-      const response = await fetch("https://threed-product-y9dh.onrender.com/api/v1/dalle", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-        }),
-      });
+      const response = await fetch(
+        "https://threed-product-y9dh.onrender.com/api/v1/dalle",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt,
+          }),
+        }
+      );
 
       const data = await response.json();
       console.log(type);
       console.log(data);
       console.log(response);
+      alert("Sorry! Something went wrong");
       // handleDecals(type, `data:image/png;base64,${data.photo}`)
     } catch (error) {
       alert(error);
@@ -261,35 +265,26 @@ const Customizer = () => {
             {...slideAnimation("up")}
           >
             {FilterTabs.map((tab) => (
-              <>
-                <a
-                  href="#"
-                  class="transititext-primary text-primary transition duration-150 ease-in-out hover:text-primary-600 focus:text-primary-600 active:text-primary-700 dark:text-primary-400 dark:hover:text-primary-500 dark:focus:text-primary-500 dark:active:text-primary-600"
-                  data-te-toggle="tooltip"
-                  title={tab.name}
-                >
-                  <Tab
-                    key={tab.name}
-                    tab={tab}
-                    isFilterTab
-                    isActiveTab={activeFilterTab[tab.name]}
-                    handleClick={() => handleActiveFilterTab(tab.name)}
-                  />
-                </a>
-              </>
+              <Tab
+                key={tab.name}
+                tab={tab}
+                isFilterTab
+                isActiveTab={activeFilterTab[tab.name]}
+                handleClick={() => handleActiveFilterTab(tab.name)}
+              />
             ))}
 
             <button
-              className="download-btn"
               onClick={downloadCanvasToImage}
-              class="transititext-primary text-primary transition duration-150 ease-in-out hover:text-primary-600 focus:text-primary-600 active:text-primary-700 dark:text-primary-400 dark:hover:text-primary-500 dark:focus:text-primary-500 dark:active:text-primary-600"
+              style={{ backgroundColor: "#6969694d" }}
+              className="download-btn transititext-primary text-primary transition duration-150 ease-in-out hover:text-primary-600 focus:text-primary-600 active:text-primary-700 dark:text-primary-400 dark:hover:text-primary-500 dark:focus:text-primary-500 dark:active:text-primary-600"
               data-te-toggle="tooltip"
               title="Download Image"
             >
               <img
                 src={download}
                 alt="download_image"
-                className="w-5/12 h-3/5 object-contain"
+                className="w-3/4 h-3/5 object-contain"
               />
             </button>
           </motion.div>

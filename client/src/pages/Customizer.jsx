@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useSnapshot } from "valtio";
 
 import state from "../store";
-// import config from '../config/config';
+import config from "../config/config";
 import { download } from "../assets";
 import { downloadCanvasToImage } from "../config/helpers";
 import { reader } from "../config/helpers";
@@ -25,7 +25,6 @@ const Customizer = () => {
   const [file, setFile] = useState("");
 
   const [prompt, setPrompt] = useState("");
-  const [generatingImg, setGeneratingImg] = useState(false);
 
   const [activeEditorTab, setActiveEditorTab] = useState("");
   const [activeFilterTab, setActiveFilterTab] = useState({
@@ -55,7 +54,7 @@ const Customizer = () => {
           <AIPicker
             prompt={prompt}
             setPrompt={setPrompt}
-            generatingImg={generatingImg}
+            generatingImg={snap.isGenerating}
             handleSubmit={handleSubmit}
             open={open}
           />
@@ -66,35 +65,38 @@ const Customizer = () => {
   };
 
   const handleSubmit = async (type) => {
-    if (!prompt) return alert("Please enter a prompt");
+    if (!prompt.trim()) return alert("Please enter a prompt");
+
+    const backendUrl = import.meta.env.DEV
+      ? config.development.backendUrl
+      : config.production.backendUrl;
 
     try {
-      setGeneratingImg(true);
+      state.isGenerating = true;
+      state.generatingType = type;
 
-      // const response = await fetch("http://localhost:8080/api/v1/dalle", {
-      const response = await fetch(
-        "https://threed-product-y9dh.onrender.com/api/v1/dalle",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            prompt,
-          }),
-        }
-      );
+      const response = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          type,
+        }),
+      });
 
       const data = await response.json();
-      console.log(type);
-      console.log(data);
-      console.log(response);
-      alert("Sorry! Something went wrong");
-      // handleDecals(type, `data:image/png;base64,${data.photo}`)
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to generate image");
+      }
+
+      handleDecals(type, `data:${data.mimeType || 'image/png'};base64,${data.photo}`);
     } catch (error) {
-      alert(error);
+      alert(error.message || error);
     } finally {
-      setGeneratingImg(false);
+      state.isGenerating = false;
       setActiveEditorTab("");
     }
   };

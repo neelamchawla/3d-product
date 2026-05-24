@@ -11,6 +11,8 @@ const state = proxy({
   decals: ['react', 'threejs', 'pmndrs'],
   logoDecal: './logo-tshirt.png',
   fullDecal: './vite.svg',
+  isGenerating: false,
+  generatingType: 'logo',
 });
 
 export default state;

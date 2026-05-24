@@ -1,46 +1,28 @@
 import express from 'express';
-import * as dotenv from 'dotenv';
-import { Configuration, OpenAIApi} from 'openai';
-
-dotenv.config();
+import { generateImage } from '../services/imageGeneration.js';
 
 const router = express.Router();
 
-const config = new Configuration({
-  // apiKey: process.env.OPENAI_API_KEY,
-  apiKey: "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",
-});
-// console.log(config);
-
-const openai = new OpenAIApi(config);
-console.log("openai ->", openai);
-
 router.route('/').get((req, res) => {
-  res.status(200).json({ message: "Hello from DALL.E ROUTES" })
-  console.log("req ->", req);
+  res.status(200).json({ message: 'Hello from DALL.E ROUTES' });
 });
 
 router.route('/').post(async (req, res) => {
   try {
-    const { prompt } = req.body;
-    console.log("prompt ->", prompt);
+    const { prompt, type = 'logo' } = req.body;
 
-    const response = await openai.createImage({
-      prompt,
-      n: 1,
-      size: '1024x1024',
-      // response_format: 'b64_json'
-      response_format: 'url'
-    });
-    console.log("response ->", response);
-    
-    const image = response.data.data[0].b64_json;
-    console.log("image ->", image);
+    if (!prompt?.trim()) {
+      return res.status(400).json({ message: 'Prompt is required' });
+    }
 
-    res.status(200).json({ photo: image });
+    const { photo, mimeType } = await generateImage(prompt, type);
+
+    res.status(200).json({ photo, mimeType });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Something went wrong" })
+    console.error(error.message || error);
+
+    const message = error.message || 'Something went wrong';
+    res.status(500).json({ message });
   }
 });
 

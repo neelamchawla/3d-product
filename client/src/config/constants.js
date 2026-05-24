@@ -56,3 +56,6 @@ export const DecalTypes = {
     filterTab: "stylishShirt",
   },
 };
+
+export const LOADING_GIF_URL =
+  "https://tamilnaducouncil.ac.in/wp-content/uploads/2018/10/loading-gif.gif";

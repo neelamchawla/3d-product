@@ -25,6 +25,10 @@ npm install cloudinary cors express mongoose nodemon
 npm i dotenv
 npm i openai
 
+<!-- sk-proj-azOzGDjB2FF15WYTX4MhvEDghKPAymEenmK2Akg3xFaU8riGHpzD7aUsA6PX
+_h5EUeyDzrGxHMT3BlbkFJblHUCh1p6hRgSB5pBQmv9J-RBTho
+_7fKnArmTmzjCEQe1sQxXPVKh8PAdh_xLG8TQEz--qShYA -->
+
 <!-- upload server side working on render.com -->
 <!-- 1. delete package-lock.json -->
 <!-- 2. add .js behind index -->
@@ -49,3 +53,14 @@ npm run dev -> client
 
 
 <!-- sk-WoxR2WcBSQEAjD1Q16FET38lbkFJLajWlVv9mXu26SA0Km6E -->
+
+cd server
+nvm use 14
+npm install   # should work now
+npm start
+
+
+cd client
+nvm use 14
+npm install
+npm run dev

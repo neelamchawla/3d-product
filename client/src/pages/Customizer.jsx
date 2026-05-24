@@ -6,6 +6,7 @@ import { useSnapshot } from "valtio";
 
 import state from "../store";
 import config from "../config/config";
+import { generateAIImage } from "../config/imageApi";
 import { download } from "../assets";
 import { downloadCanvasToImage } from "../config/helpers";
 import { reader } from "../config/helpers";
@@ -75,22 +76,7 @@ const Customizer = () => {
       state.isGenerating = true;
       state.generatingType = type;
 
-      const response = await fetch(backendUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt,
-          type,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to generate image");
-      }
+      const data = await generateAIImage(backendUrl, prompt, type);
 
       handleDecals(type, `data:${data.mimeType || 'image/png'};base64,${data.photo}`);
     } catch (error) {

@@ -24,7 +24,7 @@ const Shirt = () => {
 
   const stateString = JSON.stringify(snap);
   const loadingPosition = snap.generatingType === 'full' ? [0, 0, 0.15] : [0, 0.04, 0.15];
-  const loadingSize = snap.generatingType === 'full' && 54;
+  const loadingSize = snap.generatingType === 'full' ? 54 : 54;
 
   return (
     <group key={stateString}>

@@ -1,5 +1,3 @@
-const POLLINATIONS_MODEL = "flux";
-
 const cleanSubject = (userPrompt) =>
   userPrompt
     .trim()
@@ -17,37 +15,88 @@ const buildPrompt = (userPrompt, type) => {
   return `Clean minimal logo of ${subject}. Simple vector-style icon, centered on plain white background, suitable for t-shirt printing. No text unless specified.`;
 };
 
-const blobToBase64 = (blob) =>
+const loadPuter = () => {
+  if (window.puter) return Promise.resolve(window.puter);
+
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src="https://js.puter.com/v2/"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(window.puter));
+      existing.addEventListener("error", reject);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://js.puter.com/v2/";
+    script.async = true;
+    script.onload = () => resolve(window.puter);
+    script.onerror = () => reject(new Error("Failed to load image generation library"));
+    document.head.appendChild(script);
+  });
+};
+
+const imageElementToDataUrl = (img) =>
   new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      const [, base64] = result.split(",");
-      resolve({ photo: base64, mimeType: blob.type || "image/jpeg" });
+    if (img.src?.startsWith("data:")) {
+      resolve(img.src);
+      return;
+    }
+
+    const draw = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext("2d").drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } catch (error) {
+        reject(error);
+      }
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+
+    if (img.complete && img.naturalWidth) {
+      draw();
+      return;
+    }
+
+    img.onload = draw;
+    img.onerror = () => reject(new Error("Failed to load generated image"));
   });
 
-export async function generateFromPollinations(prompt, type = "logo") {
+const PUTER_MODELS = [
+  { model: "gpt-image-1-mini", quality: "low" },
+  { model: "gpt-image-1.5", quality: "low" },
+  {
+    model: "black-forest-labs/flux-schnell",
+    provider: "replicate-image-generation",
+  },
+];
+
+export async function generateFromPuter(prompt, type = "logo") {
+  const puter = await loadPuter();
   const enhancedPrompt = buildPrompt(prompt, type);
-  const size = type === "full" ? 1024 : 512;
-  const params = new URLSearchParams({
-    width: String(size),
-    height: String(size),
-    model: POLLINATIONS_MODEL,
-    nologo: "true",
-    seed: String(Date.now()),
-  });
+  let lastError;
 
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?${params}`;
-  const response = await fetch(url);
+  for (const options of PUTER_MODELS) {
+    try {
+      const imageEl = await puter.ai.txt2img(enhancedPrompt, options);
+      const dataUrl = await imageElementToDataUrl(imageEl);
+      const [, mimeType, photo] = dataUrl.match(/^data:(.+);base64,(.+)$/) || [];
 
-  if (!response.ok) {
-    throw new Error("Failed to generate image. Please try again in a few seconds.");
+      if (!photo) {
+        throw new Error("No image data returned");
+      }
+
+      return { photo, mimeType: mimeType || "image/png" };
+    } catch (error) {
+      lastError = error;
+      console.warn(`Puter model ${options.model} failed:`, error.message || error);
+    }
   }
 
-  return blobToBase64(await response.blob());
+  throw new Error(
+    lastError?.message || "Failed to generate image. Please try again."
+  );
 }
 
 export async function generateFromBackend(backendUrl, prompt, type = "logo") {
@@ -62,7 +111,7 @@ export async function generateFromBackend(backendUrl, prompt, type = "logo") {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "Backend failed to generate image");
+    throw new Error(data.message || "Failed to generate image");
   }
 
   return data;
@@ -72,7 +121,14 @@ export async function generateAIImage(backendUrl, prompt, type = "logo") {
   try {
     return await generateFromBackend(backendUrl, prompt, type);
   } catch (backendError) {
-    console.warn("Backend unavailable, using Pollinations directly:", backendError.message);
-    return generateFromPollinations(prompt, type);
+    const skipBackendLog =
+      backendError.message?.includes("HUGGINGFACE_API_KEY") ||
+      backendError.message?.includes("Pollinations");
+
+    if (!skipBackendLog) {
+      console.warn("Backend unavailable, using browser AI:", backendError.message);
+    }
+
+    return generateFromPuter(prompt, type);
   }
 }

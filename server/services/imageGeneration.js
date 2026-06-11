@@ -1,7 +1,7 @@
 import https from 'https';
 import { Configuration, OpenAIApi } from 'openai';
 
-const IMAGE_PROVIDER = process.env.IMAGE_PROVIDER || 'pollinations';
+const IMAGE_PROVIDER = process.env.IMAGE_PROVIDER || 'huggingface';
 const POLLINATIONS_MODEL = process.env.POLLINATIONS_MODEL || 'flux';
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
 const HUGGINGFACE_MODEL =
@@ -50,16 +50,20 @@ const fetchBuffer = (url, options = {}) =>
     request.on('error', reject);
   });
 
-const postBuffer = (url, body, headers = {}) =>
+const requestBuffer = (url, { method = 'GET', body, headers = {} } = {}) =>
   new Promise((resolve, reject) => {
-    const payload = JSON.stringify(body);
+    const payload = body ? JSON.stringify(body) : null;
     const request = https.request(
       url,
       {
-        method: 'POST',
+        method,
         headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
+          ...(payload
+            ? {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+              }
+            : {}),
           ...headers,
         },
       },
@@ -70,10 +74,26 @@ const postBuffer = (url, body, headers = {}) =>
           const buffer = Buffer.concat(chunks);
 
           if (response.statusCode !== 200) {
+            let message = buffer.toString();
+
+            try {
+              const parsed = JSON.parse(message);
+              message = parsed.error || parsed.message || message;
+            } catch {
+              // keep raw message
+            }
+
+            if (response.statusCode === 503) {
+              reject(
+                new Error(
+                  'Model is loading. Please wait 20 seconds and try again.'
+                )
+              );
+              return;
+            }
+
             reject(
-              new Error(
-                buffer.toString() || `Request failed with status ${response.statusCode}`
-              )
+              new Error(message || `Request failed with status ${response.statusCode}`)
             );
             return;
           }
@@ -85,7 +105,7 @@ const postBuffer = (url, body, headers = {}) =>
     );
 
     request.on('error', reject);
-    request.write(payload);
+    if (payload) request.write(payload);
     request.end();
   });
 
@@ -100,23 +120,42 @@ async function generateWithPollinations(prompt, type) {
   });
 
   const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${params}`;
-  const buffer = await fetchBuffer(url);
-  const mimeType = buffer[0] === 0x89 ? 'image/png' : 'image/jpeg';
 
-  return { photo: buffer.toString('base64'), mimeType };
+  try {
+    const buffer = await fetchBuffer(url);
+    const mimeType = buffer[0] === 0x89 ? 'image/png' : 'image/jpeg';
+    return { photo: buffer.toString('base64'), mimeType };
+  } catch (error) {
+    if (error.message.includes('402')) {
+      throw new Error(
+        'Pollinations now requires payment. Set IMAGE_PROVIDER=huggingface and add a free HUGGINGFACE_API_KEY.'
+      );
+    }
+    throw error;
+  }
 }
 
 async function generateWithHuggingFace(prompt) {
-  if (!process.env.HUGGINGFACE_API_KEY) {
-    throw new Error('HUGGINGFACE_API_KEY is not configured');
+  const apiKey = process.env.HUGGINGFACE_API_KEY?.trim();
+
+  if (!apiKey || apiKey === 'your-huggingface-token-here') {
+    throw new Error(
+      'HUGGINGFACE_API_KEY is not configured. Get a free token at https://huggingface.co/settings/tokens and add it to server/.env'
+    );
   }
 
-  const url = `https://api-inference.huggingface.co/models/${HUGGINGFACE_MODEL}`;
-  const buffer = await postBuffer(url, { inputs: prompt }, {
-    Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+  const url = `https://router.huggingface.co/hf-inference/models/${HUGGINGFACE_MODEL}`;
+  const buffer = await requestBuffer(url, {
+    method: 'POST',
+    body: { inputs: prompt },
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
   });
 
-  return { photo: buffer.toString('base64'), mimeType: 'image/jpeg' };
+  const mimeType = buffer[0] === 0x89 ? 'image/png' : 'image/jpeg';
+
+  return { photo: buffer.toString('base64'), mimeType };
 }
 
 async function generateWithOpenAI(prompt, type) {
@@ -152,10 +191,10 @@ export async function generateImage(userPrompt, type = 'logo') {
   switch (IMAGE_PROVIDER) {
     case 'openai':
       return generateWithOpenAI(prompt, type);
-    case 'huggingface':
-      return generateWithHuggingFace(prompt);
     case 'pollinations':
-    default:
       return generateWithPollinations(prompt, type);
+    case 'huggingface':
+    default:
+      return generateWithHuggingFace(prompt);
   }
 }

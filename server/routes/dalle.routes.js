@@ -1,5 +1,9 @@
 import express from 'express';
-import { generateImage } from '../services/imageGeneration.js';
+import {
+  generateImage,
+  getErrorMessage,
+  getHuggingFaceStatus,
+} from '../services/imageGeneration.js';
 
 const router = express.Router();
 
@@ -8,6 +12,10 @@ const ALLOWED_TYPES = new Set(['logo', 'full']);
 
 router.route('/').get((req, res) => {
   res.status(200).json({ message: 'Hello from DALL.E ROUTES' });
+});
+
+router.route('/status').get((req, res) => {
+  res.status(200).json(getHuggingFaceStatus());
 });
 
 router.route('/').post(async (req, res) => {
@@ -38,10 +46,11 @@ router.route('/').post(async (req, res) => {
 
     res.status(200).json({ photo, mimeType });
   } catch (error) {
-    console.error(error.message || error);
+    const message = getErrorMessage(error);
+    console.error('Image generation failed:', message, error);
 
-    const message = error.message || 'Something went wrong';
-    res.status(500).json({ message });
+    const statusCode = message.includes('not configured') ? 503 : 500;
+    res.status(statusCode).json({ message });
   }
 });
 

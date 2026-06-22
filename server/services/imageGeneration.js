@@ -9,6 +9,13 @@ const HUGGINGFACE_MODEL =
   process.env.HUGGINGFACE_MODEL || 'black-forest-labs/FLUX.1-schnell';
 const HUGGINGFACE_PROVIDER = process.env.HUGGINGFACE_PROVIDER || 'auto';
 
+const HUGGINGFACE_FALLBACK_MODELS = [
+  HUGGINGFACE_MODEL,
+  'black-forest-labs/FLUX.1-schnell',
+  'stabilityai/sdxl-turbo',
+  'ByteDance/SDXL-Lightning',
+].filter((model, index, models) => models.indexOf(model) === index);
+
 export const cleanSubject = (userPrompt) =>
   userPrompt
     .trim()
@@ -24,6 +31,24 @@ export const buildPrompt = (userPrompt, type) => {
   }
 
   return `Clean minimal logo of ${subject}. Simple vector-style icon, centered on plain white background, suitable for t-shirt printing. No text unless specified.`;
+};
+
+export const getErrorMessage = (error) => {
+  if (!error) return 'Something went wrong';
+
+  if (typeof error.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+
+  if (typeof error.body === 'string' && error.body.trim()) {
+    return error.body;
+  }
+
+  if (typeof error === 'string' && error.trim()) {
+    return error;
+  }
+
+  return 'Something went wrong';
 };
 
 const fetchBuffer = (url, options = {}) =>
@@ -52,65 +77,6 @@ const fetchBuffer = (url, options = {}) =>
     request.on('error', reject);
   });
 
-const requestBuffer = (url, { method = 'GET', body, headers = {} } = {}) =>
-  new Promise((resolve, reject) => {
-    const payload = body ? JSON.stringify(body) : null;
-    const request = https.request(
-      url,
-      {
-        method,
-        headers: {
-          ...(payload
-            ? {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload),
-              }
-            : {}),
-          ...headers,
-        },
-      },
-      (response) => {
-        const chunks = [];
-        response.on('data', (chunk) => chunks.push(chunk));
-        response.on('end', () => {
-          const buffer = Buffer.concat(chunks);
-
-          if (response.statusCode !== 200) {
-            let message = buffer.toString();
-
-            try {
-              const parsed = JSON.parse(message);
-              message = parsed.error || parsed.message || message;
-            } catch {
-              // keep raw message
-            }
-
-            if (response.statusCode === 503) {
-              reject(
-                new Error(
-                  'Model is loading. Please wait 20 seconds and try again.'
-                )
-              );
-              return;
-            }
-
-            reject(
-              new Error(message || `Request failed with status ${response.statusCode}`)
-            );
-            return;
-          }
-
-          resolve(buffer);
-        });
-        response.on('error', reject);
-      }
-    );
-
-    request.on('error', reject);
-    if (payload) request.write(payload);
-    request.end();
-  });
-
 async function generateWithPollinations(prompt, type) {
   const size = type === 'full' ? 1024 : 512;
   const params = new URLSearchParams({
@@ -137,65 +103,85 @@ async function generateWithPollinations(prompt, type) {
   }
 }
 
+const mapHuggingFaceError = (error, model) => {
+  const message = getErrorMessage(error);
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes('not found') ||
+    lower.includes('repository not found') ||
+    lower.includes('provider mapping')
+  ) {
+    return new Error(
+      `Model "${model}" was not found or has no inference provider. Verify it at https://huggingface.co/${model}`
+    );
+  }
+
+  if (
+    lower.includes('invalid username or password') ||
+    lower.includes('unauthorized') ||
+    lower.includes('authentication')
+  ) {
+    return new Error(
+      'Hugging Face authentication failed. Set HUGGINGFACE_API_KEY on Render with a token that has Inference permissions: https://huggingface.co/settings/tokens'
+    );
+  }
+
+  if (message.includes('403') || lower.includes('gated')) {
+    return new Error(
+      `Access to ${model} is restricted. Accept the model license at https://huggingface.co/${model}`
+    );
+  }
+
+  if (lower.includes('not supported for task')) {
+    return new Error(
+      `${model} does not support text-to-image via the selected provider.`
+    );
+  }
+
+  if (lower.includes('loading') || lower.includes('503')) {
+    return new Error('Model is loading. Please wait 20 seconds and try again.');
+  }
+
+  return error instanceof Error ? error : new Error(message);
+};
+
+async function generateWithHuggingFaceModel(client, prompt, model) {
+  const blob = await client.textToImage({
+    provider: HUGGINGFACE_PROVIDER,
+    model,
+    inputs: prompt,
+  });
+
+  const buffer = Buffer.from(await blob.arrayBuffer());
+  const mimeType = buffer[0] === 0x89 ? 'image/png' : 'image/jpeg';
+
+  return { photo: buffer.toString('base64'), mimeType };
+}
+
 async function generateWithHuggingFace(prompt) {
   const apiKey = process.env.HUGGINGFACE_API_KEY?.trim();
 
   if (!apiKey || apiKey === 'your-huggingface-token-here') {
     throw new Error(
-      'HUGGINGFACE_API_KEY is not configured. Get a free token at https://huggingface.co/settings/tokens and add it to server/.env'
+      'HUGGINGFACE_API_KEY is not configured on the server. Add your free token in Render environment variables: https://huggingface.co/settings/tokens'
     );
   }
 
   const client = new InferenceClient(apiKey);
+  let lastError;
 
-  try {
-    const blob = await client.textToImage({
-      provider: HUGGINGFACE_PROVIDER,
-      model: HUGGINGFACE_MODEL,
-      inputs: prompt,
-    });
-
-    const buffer = Buffer.from(await blob.arrayBuffer());
-    const mimeType = buffer[0] === 0x89 ? 'image/png' : 'image/jpeg';
-
-    return { photo: buffer.toString('base64'), mimeType };
-  } catch (error) {
-    const message = error.message || String(error);
-    const lower = message.toLowerCase();
-
-    if (
-      lower.includes('not found') ||
-      lower.includes('repository not found') ||
-      lower.includes('provider mapping')
-    ) {
-      throw new Error(
-        `Model "${HUGGINGFACE_MODEL}" was not found or has no inference provider. Verify the model exists at https://huggingface.co/${HUGGINGFACE_MODEL}`
-      );
+  for (const model of HUGGINGFACE_FALLBACK_MODELS) {
+    try {
+      console.log(`Trying Hugging Face model: ${model}`);
+      return await generateWithHuggingFaceModel(client, prompt, model);
+    } catch (error) {
+      lastError = mapHuggingFaceError(error, model);
+      console.warn(`Model ${model} failed:`, getErrorMessage(lastError));
     }
-
-    if (
-      lower.includes('invalid username or password') ||
-      lower.includes('unauthorized')
-    ) {
-      throw new Error(
-        'Hugging Face authentication failed. Check HUGGINGFACE_API_KEY in server/.env — create a token with Inference permissions at https://huggingface.co/settings/tokens'
-      );
-    }
-
-    if (message.includes('403') || message.toLowerCase().includes('gated')) {
-      throw new Error(
-        `Access to ${HUGGINGFACE_MODEL} is restricted. Accept the model license at https://huggingface.co/${HUGGINGFACE_MODEL}`
-      );
-    }
-
-    if (message.toLowerCase().includes('not supported for task')) {
-      throw new Error(
-        `${HUGGINGFACE_MODEL} does not support text-to-image via the selected provider. Try FLUX.1-schnell or set HUGGINGFACE_PROVIDER=auto.`
-      );
-    }
-
-    throw error;
   }
+
+  throw lastError || new Error('All Hugging Face models failed. Please try again.');
 }
 
 async function generateWithOpenAI(prompt, type) {
@@ -237,4 +223,16 @@ export async function generateImage(userPrompt, type = 'logo') {
     default:
       return generateWithHuggingFace(prompt);
   }
+}
+
+export function getHuggingFaceStatus() {
+  const apiKey = process.env.HUGGINGFACE_API_KEY?.trim();
+
+  return {
+    provider: IMAGE_PROVIDER,
+    apiKeyConfigured: Boolean(apiKey && apiKey !== 'your-huggingface-token-here'),
+    model: HUGGINGFACE_MODEL,
+    inferenceProvider: HUGGINGFACE_PROVIDER,
+    fallbackModels: HUGGINGFACE_FALLBACK_MODELS,
+  };
 }

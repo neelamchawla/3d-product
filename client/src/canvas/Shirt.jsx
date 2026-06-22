@@ -1,5 +1,4 @@
 /* eslint-disable react/no-unknown-property */
-// import React from 'react'
 import { easing } from 'maath';
 import { useSnapshot } from 'valtio';
 import { useFrame } from '@react-three/fiber';
@@ -8,10 +7,14 @@ import { Decal, useGLTF, useTexture, Html } from '@react-three/drei';
 import state from '../store';
 import { LOADING_GIF_URL } from '../config/constants';
 
+useGLTF.preload('/shirt_baked.glb');
+
 const Shirt = () => {
   const snap = useSnapshot(state);
   const { nodes, materials } = useGLTF('/shirt_baked.glb');
-  // console.log(state);
+
+  const shirtGeometry = nodes?.T_Shirt_male?.geometry;
+  const shirtMaterial = materials?.lambert1;
 
   const logoTextureReact = useTexture(`/${snap.decals[0]}.png`);
   const logoTextureThree = useTexture(`/${snap.decals[1]}.png`);
@@ -20,18 +23,24 @@ const Shirt = () => {
   const logoTexture = useTexture(snap.logoDecal);
   const fullTexture = useTexture(snap.fullDecal);
 
-  useFrame((state, delta) => easing.dampC(materials.lambert1.color, snap.color, 0.25, delta));
+  useFrame((_state, delta) => {
+    if (!shirtMaterial?.color) return;
+    easing.dampC(shirtMaterial.color, snap.color, 0.25, delta);
+  });
 
-  const stateString = JSON.stringify(snap);
   const loadingPosition = snap.generatingType === 'full' ? [0, 0, 0.15] : [0, 0.04, 0.15];
-  const loadingSize = snap.generatingType === 'full' ? 54 : 54;
+  const loadingSize = 54;
+
+  if (!shirtGeometry || !shirtMaterial) {
+    return null;
+  }
 
   return (
-    <group key={stateString}>
+    <group>
       <mesh
         castShadow
-        geometry={nodes.T_Shirt_male.geometry}
-        material={materials.lambert1}
+        geometry={shirtGeometry}
+        material={shirtMaterial}
         material-roughness={1}
         dispose={null}
       >
@@ -102,7 +111,7 @@ const Shirt = () => {
         >
           <img
             src={LOADING_GIF_URL}
-            alt="Generating logo..."
+            alt="Generating design"
             width={loadingSize}
             height={loadingSize}
             className="pointer-events-none select-none"
@@ -110,7 +119,7 @@ const Shirt = () => {
         </Html>
       )}
     </group>
-  )
-}
+  );
+};
 
-export default Shirt
+export default Shirt;

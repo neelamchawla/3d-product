@@ -1,4 +1,5 @@
 import https from 'https';
+import { InferenceClient } from '@huggingface/inference';
 import { Configuration, OpenAIApi } from 'openai';
 
 const IMAGE_PROVIDER = process.env.IMAGE_PROVIDER || 'huggingface';
@@ -6,6 +7,7 @@ const POLLINATIONS_MODEL = process.env.POLLINATIONS_MODEL || 'flux';
 const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
 const HUGGINGFACE_MODEL =
   process.env.HUGGINGFACE_MODEL || 'black-forest-labs/FLUX.1-schnell';
+const HUGGINGFACE_PROVIDER = process.env.HUGGINGFACE_PROVIDER || 'auto';
 
 export const cleanSubject = (userPrompt) =>
   userPrompt
@@ -144,18 +146,56 @@ async function generateWithHuggingFace(prompt) {
     );
   }
 
-  const url = `https://router.huggingface.co/hf-inference/models/${HUGGINGFACE_MODEL}`;
-  const buffer = await requestBuffer(url, {
-    method: 'POST',
-    body: { inputs: prompt },
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
-  });
+  const client = new InferenceClient(apiKey);
 
-  const mimeType = buffer[0] === 0x89 ? 'image/png' : 'image/jpeg';
+  try {
+    const blob = await client.textToImage({
+      provider: HUGGINGFACE_PROVIDER,
+      model: HUGGINGFACE_MODEL,
+      inputs: prompt,
+    });
 
-  return { photo: buffer.toString('base64'), mimeType };
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    const mimeType = buffer[0] === 0x89 ? 'image/png' : 'image/jpeg';
+
+    return { photo: buffer.toString('base64'), mimeType };
+  } catch (error) {
+    const message = error.message || String(error);
+    const lower = message.toLowerCase();
+
+    if (
+      lower.includes('not found') ||
+      lower.includes('repository not found') ||
+      lower.includes('provider mapping')
+    ) {
+      throw new Error(
+        `Model "${HUGGINGFACE_MODEL}" was not found or has no inference provider. Verify the model exists at https://huggingface.co/${HUGGINGFACE_MODEL}`
+      );
+    }
+
+    if (
+      lower.includes('invalid username or password') ||
+      lower.includes('unauthorized')
+    ) {
+      throw new Error(
+        'Hugging Face authentication failed. Check HUGGINGFACE_API_KEY in server/.env — create a token with Inference permissions at https://huggingface.co/settings/tokens'
+      );
+    }
+
+    if (message.includes('403') || message.toLowerCase().includes('gated')) {
+      throw new Error(
+        `Access to ${HUGGINGFACE_MODEL} is restricted. Accept the model license at https://huggingface.co/${HUGGINGFACE_MODEL}`
+      );
+    }
+
+    if (message.toLowerCase().includes('not supported for task')) {
+      throw new Error(
+        `${HUGGINGFACE_MODEL} does not support text-to-image via the selected provider. Try FLUX.1-schnell or set HUGGINGFACE_PROVIDER=auto.`
+      );
+    }
+
+    throw error;
+  }
 }
 
 async function generateWithOpenAI(prompt, type) {
@@ -176,7 +216,7 @@ async function generateWithOpenAI(prompt, type) {
     output_format: 'png',
   });
 
-  const image = response.data.data[0].b64_json;
+  const image = response.data?.data?.[0]?.b64_json;
 
   if (!image) {
     throw new Error('No image was returned from OpenAI');

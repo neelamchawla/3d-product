@@ -1,5 +1,3 @@
-/* eslint-disable react/no-unknown-property */
-// import React, { useState, useEffect } from 'react';
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSnapshot } from "valtio";
@@ -36,7 +34,7 @@ const Customizer = () => {
     stylishShirt: false,
   });
   const [open, setOpen] = useState(false);
-  // show tab content depending on the activeTab
+
   const generateTabContent = () => {
     switch (activeEditorTab) {
       case "colorpicker":
@@ -66,7 +64,10 @@ const Customizer = () => {
   };
 
   const handleSubmit = async (type) => {
-    if (!prompt.trim()) return alert("Please enter a prompt");
+    if (!prompt.trim()) {
+      alert("Please enter a prompt");
+      return;
+    }
 
     const backendUrl = import.meta.env.DEV
       ? config.development.backendUrl
@@ -76,19 +77,27 @@ const Customizer = () => {
       state.isGenerating = true;
       state.generatingType = type;
 
-      const data = await generateAIImage(backendUrl, prompt, type);
+      const data = await generateAIImage(backendUrl, prompt.trim(), type);
 
-      handleDecals(type, `data:${data.mimeType || 'image/png'};base64,${data.photo}`);
+      if (!data?.photo) {
+        throw new Error("No image was returned");
+      }
+
+      handleDecals(type, `data:${data.mimeType || "image/png"};base64,${data.photo}`);
     } catch (error) {
-      alert(error.message || error);
+      alert(error.message || "Failed to generate image");
     } finally {
       state.isGenerating = false;
-      setActiveEditorTab("");
+      closeEditorPanel();
     }
   };
 
   const handleDecals = (type, result) => {
     const decalType = DecalTypes[type];
+    if (!decalType) {
+      console.error(`Unknown decal type: ${type}`);
+      return;
+    }
 
     state[decalType.stateProperty] = result;
 
@@ -97,136 +106,76 @@ const Customizer = () => {
     }
   };
 
-  const handleActiveFilterTab = (tabName) => {
-    // console.log(tabName);
-    // console.log(activeFilterTab);
-
-    switch (tabName) {
-      case "reactLogoShirt":
-        if (tabName === "reactLogoShirt") {
-          state.isLogoReact = !activeFilterTab[tabName];
-          state.isLogoThree = false;
-          state.isLogoPmndrs = false;
-          state.isLogoTexture = false;
-          setActiveFilterTab(activeFilterTab["reactLogoShirt"]);
-          setActiveFilterTab(!activeFilterTab["threejsLogoShirt"]);
-          setActiveFilterTab(!activeFilterTab["pmndrsLogoShirt"]);
-          setActiveFilterTab(!activeFilterTab["logoShirt"]);
-        }
-        break;
-      case "threejsLogoShirt":
-        if (tabName === "threejsLogoShirt") {
-          state.isLogoReact = false;
-          state.isLogoThree = !activeFilterTab[tabName];
-          state.isLogoPmndrs = false;
-          state.isLogoTexture = false;
-          setActiveFilterTab(!activeFilterTab["reactLogoShirt"]);
-          setActiveFilterTab(activeFilterTab["threejsLogoShirt"]);
-          setActiveFilterTab(!activeFilterTab["pmndrsLogoShirt"]);
-          setActiveFilterTab(!activeFilterTab["logoShirt"]);
-        }
-        break;
-      case "pmndrsLogoShirt":
-        if (tabName === "pmndrsLogoShirt") {
-          state.isLogoReact = false;
-          state.isLogoThree = false;
-          state.isLogoPmndrs = !activeFilterTab[tabName];
-          state.isLogoTexture = false;
-          setActiveFilterTab(!activeFilterTab["reactLogoShirt"]);
-          setActiveFilterTab(!activeFilterTab["threejsLogoShirt"]);
-          setActiveFilterTab(activeFilterTab["pmndrsLogoShirt"]);
-          setActiveFilterTab(!activeFilterTab["logoShirt"]);
-        }
-        break;
-      case "logoShirt":
-        if (tabName === "logoShirt") {
-          state.isLogoReact = false;
-          state.isLogoThree = false;
-          state.isLogoPmndrs = false;
-          state.isLogoTexture = !activeFilterTab[tabName];
-          setActiveFilterTab(!activeFilterTab["reactLogoShirt"]);
-          setActiveFilterTab(!activeFilterTab["threejsLogoShirt"]);
-          setActiveFilterTab(!activeFilterTab["pmndrsLogoShirt"]);
-        }
-        break;
-      case "stylishShirt":
-        state.isFullTexture = !activeFilterTab[tabName];
-        break;
-      default:
-        state.isLogoReact = true;
-        state.isLogoThree = false;
-        state.isLogoPmndrs = false;
-        state.isLogoTexture = false;
-        state.isFullTexture = false;
-        break;
+  const handleEditorTabClick = (tabName) => {
+    if (activeEditorTab === tabName && open) {
+      setOpen(false);
+      setActiveEditorTab("");
+      return;
     }
 
-    // after setting the state, activeFilterTab is updated
+    setActiveEditorTab(tabName);
+    setOpen(true);
+  };
 
-    setActiveFilterTab((prevState) => {
-      console.log(tabName);
+  const closeEditorPanel = () => {
+    setActiveEditorTab("");
+    setOpen(false);
+  };
 
-      // if (tabName === "reactLogoShirt") {
-      //   setActiveFilterTab(activeFilterTab["reactLogoShirt"])
-      //   setActiveFilterTab(!activeFilterTab["threejsLogoShirt"])
-      //   setActiveFilterTab(!activeFilterTab["logoShirt"])
-      // }
+  const handleActiveFilterTab = (tabName) => {
+    if (activeFilterTab[tabName]) {
+      return;
+    }
 
-      // else if (tabName === "threejsLogoShirt") {
-      //   setActiveFilterTab(!activeFilterTab["reactLogoShirt"])
-      //   setActiveFilterTab(activeFilterTab["threejsLogoShirt"])
-      //   setActiveFilterTab(!activeFilterTab["pmndrsLogoShirt"])
-      //   setActiveFilterTab(!activeFilterTab["logoShirt"])
-      // }
-
-      // else if (tabName === "pmndrsLogoShirt") {
-      //   setActiveFilterTab(!activeFilterTab["reactLogoShirt"])
-      //   setActiveFilterTab(!activeFilterTab["threejsLogoShirt"])
-      //   setActiveFilterTab(activeFilterTab["pmndrsLogoShirt"])
-      //   setActiveFilterTab(!activeFilterTab["logoShirt"])
-      // }
-
-      // else if (tabName === "logoShirt") {
-      //   setActiveFilterTab(!activeFilterTab["reactLogoShirt"])
-      //   setActiveFilterTab(!activeFilterTab["threejsLogoShirt"])
-      //   setActiveFilterTab(!activeFilterTab["pmndrsLogoShirt"])
-      //   // setActiveFilterTab(activeFilterTab["logoShirt"])
-      // }
-
-      return {
-        ...prevState,
-        [tabName]: !prevState[tabName],
-      };
+    setActiveFilterTab({
+      reactLogoShirt: tabName === "reactLogoShirt",
+      threejsLogoShirt: tabName === "threejsLogoShirt",
+      pmndrsLogoShirt: tabName === "pmndrsLogoShirt",
+      logoShirt: tabName === "logoShirt",
+      stylishShirt: tabName === "stylishShirt",
     });
+
+    state.isLogoReact = tabName === "reactLogoShirt";
+    state.isLogoThree = tabName === "threejsLogoShirt";
+    state.isLogoPmndrs = tabName === "pmndrsLogoShirt";
+    state.isLogoTexture = tabName === "logoShirt";
+    state.isFullTexture = tabName === "stylishShirt";
   };
 
   const readFile = (type) => {
-    reader(file).then((result) => {
-      handleDecals(type, result);
-      setActiveEditorTab("");
-    });
+    if (!file) {
+      alert("Please select a file first");
+      return;
+    }
+
+    reader(file)
+      .then((result) => {
+        handleDecals(type, result);
+        closeEditorPanel();
+      })
+      .catch((error) => {
+        alert(error.message || "Failed to read file");
+      });
   };
 
   return (
     <AnimatePresence>
       {!snap.intro && (
         <>
-          {/* left bar */}
           <motion.div
             key="custom"
             className="absolute top-0 left-0 z-10"
+            aria-label="Editor tools"
             {...slideAnimation("left")}
           >
             <div className="flex items-center min-h-screen">
-              <div className="editortabs-container tabs">
+              <div className="editortabs-container tabs" role="toolbar" aria-label="Design tools">
                 {EditorTabs.map((tab) => (
                   <Tab
                     key={tab.name}
                     tab={tab}
-                    handleClick={() => {
-                      setActiveEditorTab(tab.name);
-                      setOpen(!open);
-                    }}
+                    isActiveEditor={activeEditorTab === tab.name && open}
+                    handleClick={() => handleEditorTabClick(tab.name)}
                   />
                 ))}
                 {generateTabContent()}
@@ -234,7 +183,6 @@ const Customizer = () => {
             </div>
           </motion.div>
 
-          {/* back button */}
           <motion.div
             className="absolute z-10 top-5 right-5"
             {...fadeAnimation}
@@ -242,14 +190,15 @@ const Customizer = () => {
             <CustomButton
               type="filled"
               title="Go Back"
-              handleClick={() => (state.intro = true)}
+              handleClick={() => { state.intro = true; }}
               customStyles="w-fit px-4 py-2.5 font-bold text-sm"
             />
           </motion.div>
 
-          {/* bottom buttons */}
           <motion.div
             className="filtertabs-container"
+            role="toolbar"
+            aria-label="Shirt style filters"
             {...slideAnimation("up")}
           >
             {FilterTabs.map((tab) => (
@@ -263,15 +212,16 @@ const Customizer = () => {
             ))}
 
             <button
+              type="button"
               onClick={downloadCanvasToImage}
-              style={{ backgroundColor: "#6969694d" }}
-              className="download-btn transititext-primary text-primary transition duration-150 ease-in-out hover:text-primary-600 focus:text-primary-600 active:text-primary-700 dark:text-primary-400 dark:hover:text-primary-500 dark:focus:text-primary-500 dark:active:text-primary-600"
-              data-te-toggle="tooltip"
+              className="download-btn"
+              aria-label="Download shirt design as image"
               title="Download Image"
             >
               <img
                 src={download}
-                alt="download_image"
+                alt=""
+                aria-hidden="true"
                 className="w-3/4 h-3/5 object-contain"
               />
             </button>

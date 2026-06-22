@@ -3,38 +3,45 @@ import { useSnapshot } from "valtio";
 
 import state from "../store";
 
-const Tab = ({ tab, isFilterTab, isActiveTab, handleClick }) => {
+const Tab = ({ tab, isFilterTab, isActiveTab, isActiveEditor, handleClick }) => {
   const snap = useSnapshot(state);
 
-  const activeStyles =
+  const filterActiveStyle =
     isFilterTab && isActiveTab
-      ? { backgroundColor: snap.color, opacity: 0.5 }
-      : { backgroundColor: "#6969694d", borderRadius: "50%", padding: "3px" };
+      ? {
+          backgroundColor: `${snap.color}20`,
+          borderColor: snap.color,
+          boxShadow: `0 8px 24px -6px ${snap.color}55, 0 0 0 2px #fff, 0 0 0 4px ${snap.color}`,
+        }
+      : undefined;
+
+  const editorClass = isFilterTab
+    ? ""
+    : `tab-btn-editor ${isActiveEditor ? "tab-btn-editor-active" : ""}`;
+
+  const filterClass = isFilterTab
+    ? `tab-btn-filter ${isActiveTab ? "tab-btn-filter-active" : ""}`
+    : "";
 
   return (
-    <div
-      key={tab.name}
-      className={`tab-btn ${
-        isFilterTab ? "rounded-full glassmorphism" : "rounded-4"
-      }`}
+    <button
+      type="button"
+      className={`tab-btn ${isFilterTab ? filterClass : editorClass}`}
       onClick={handleClick}
-      style={activeStyles}
+      style={filterActiveStyle}
+      aria-label={tab.title}
+      aria-pressed={isFilterTab ? Boolean(isActiveTab) : undefined}
+      aria-current={isActiveEditor ? "true" : undefined}
+      title={tab.title}
     >
-      <a
-        href="#"
-        className="transititext-primary text-primary transition duration-150 ease-in-out hover:text-primary-600 focus:text-primary-600 active:text-primary-700 dark:text-primary-400 dark:hover:text-primary-500 dark:focus:text-primary-500 dark:active:text-primary-600"
-        data-te-toggle="tooltip"
-        title={tab.title}
-      >
-        <img
-          src={tab.icon}
-          alt={tab.name}
-          className={`${
-            isFilterTab ? "w-2/3 h-2/3 ml-2" : "w-11/12 h-11/12 object-contain ml-[3px]"
-          }`}
-        />
-      </a>
-    </div>
+      <img
+        src={tab.icon}
+        alt=""
+        aria-hidden="true"
+        className={isFilterTab ? "tab-icon-filter" : "tab-icon-editor"}
+        draggable={false}
+      />
+    </button>
   );
 };
 

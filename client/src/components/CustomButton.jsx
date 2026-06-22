@@ -1,37 +1,45 @@
-// import React from 'react'
 import { useSnapshot } from 'valtio';
 
 import state from '../store';
 import { getContrastingColor } from '../config/helpers';
 
 // eslint-disable-next-line react/prop-types
-const CustomButton = ({ type, title, customStyles, handleClick }) => {
+const CustomButton = ({ type, title, customStyles, handleClick, disabled, ariaLabel }) => {
   const snap = useSnapshot(state);
 
-  const generateStyle = (type) => {
-    if(type === 'filled') {
+  const generateStyle = (buttonType) => {
+    if (buttonType === 'filled') {
       return {
         backgroundColor: snap.color,
-        color: getContrastingColor(snap.color)
-      }
-    } else if(type === "outline") {
-      return {
-        borderWidth: '1px',
-        borderColor: snap.color,
-        color: snap.color
-      }
+        color: getContrastingColor(snap.color),
+      };
     }
-  }
+
+    if (buttonType === 'outline') {
+      return {
+        borderColor: snap.color,
+        color: snap.color,
+      };
+    }
+
+    return {};
+  };
+
+  const variantClass = type === 'filled' ? 'btn-filled' : 'btn-outline';
 
   return (
     <button
-      className={`px-2 py-1.5 flex-1 rounded-md ${customStyles}`}
+      type="button"
+      className={`${variantClass} ${customStyles ?? ''}`}
       style={generateStyle(type)}
       onClick={handleClick}
+      disabled={disabled}
+      aria-label={ariaLabel ?? title}
+      aria-disabled={disabled || undefined}
     >
       {title}
     </button>
-  )
-}
+  );
+};
 
-export default CustomButton
+export default CustomButton;

@@ -1,27 +1,35 @@
 /* eslint-disable react/prop-types */
-// import React from 'react'
 
 import CustomButton from './CustomButton';
 
 const AIPicker = ({ open, prompt, setPrompt, generatingImg, handleSubmit }) => {
   return (
     <>
-      {/* If open is true show your <div /> */}
       {open && (
         <div className="aipicker-container">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-subtle">
+            AI generator
+          </p>
+          <label htmlFor="ai-prompt" className="sr-only">
+            AI image prompt
+          </label>
           <textarea
-            placeholder="Ask AI... e.g. create a cat logo"
+            id="ai-prompt"
+            placeholder="Describe your design… e.g. a sunset over mountains"
             rows={5}
-            value={prompt ? prompt : 'create sunrise logo'}
-            onChange={(e) => setPrompt(e.target.value)}
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
             className="aipicker-textarea"
+            aria-busy={generatingImg}
+            maxLength={500}
           />
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="AI generation options">
             {generatingImg ? (
               <CustomButton
                 type="outline"
-                title="Asking AI..."
-                customStyles="text-xs"
+                title="Generating…"
+                customStyles="text-xs w-full"
+                disabled
               />
             ) : (
               <>
@@ -44,8 +52,7 @@ const AIPicker = ({ open, prompt, setPrompt, generatingImg, handleSubmit }) => {
         </div>
       )}
     </>
-    // <>AIPicker</>
-  )
-}
+  );
+};
 
-export default AIPicker
+export default AIPicker;

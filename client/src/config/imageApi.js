@@ -1,3 +1,6 @@
+const MAX_PROMPT_LENGTH = 500;
+const ALLOWED_TYPES = new Set(["logo", "full"]);
+
 const cleanSubject = (userPrompt) =>
   userPrompt
     .trim()
@@ -29,6 +32,7 @@ const loadPuter = () => {
     const script = document.createElement("script");
     script.src = "https://js.puter.com/v2/";
     script.async = true;
+    script.crossOrigin = "anonymous";
     script.onload = () => resolve(window.puter);
     script.onerror = () => reject(new Error("Failed to load image generation library"));
     document.head.appendChild(script);
@@ -37,7 +41,12 @@ const loadPuter = () => {
 
 const imageElementToDataUrl = (img) =>
   new Promise((resolve, reject) => {
-    if (img.src?.startsWith("data:")) {
+    if (!img?.src) {
+      reject(new Error("Invalid image element"));
+      return;
+    }
+
+    if (img.src.startsWith("data:")) {
       resolve(img.src);
       return;
     }
@@ -47,7 +56,12 @@ const imageElementToDataUrl = (img) =>
         const canvas = document.createElement("canvas");
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
-        canvas.getContext("2d").drawImage(img, 0, 0);
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("Could not get canvas context"));
+          return;
+        }
+        context.drawImage(img, 0, 0);
         resolve(canvas.toDataURL("image/png"));
       } catch (error) {
         reject(error);
@@ -74,6 +88,10 @@ const PUTER_MODELS = [
 
 export async function generateFromPuter(prompt, type = "logo") {
   const puter = await loadPuter();
+  if (!puter?.ai?.txt2img) {
+    throw new Error("Image generation library is unavailable");
+  }
+
   const enhancedPrompt = buildPrompt(prompt, type);
   let lastError;
 
@@ -100,35 +118,68 @@ export async function generateFromPuter(prompt, type = "logo") {
 }
 
 export async function generateFromBackend(backendUrl, prompt, type = "logo") {
+  if (!backendUrl) {
+    throw new Error("Backend URL is not configured");
+  }
+
+  const trimmedPrompt = prompt.trim();
+  if (!trimmedPrompt) {
+    throw new Error("Prompt is required");
+  }
+
+  if (trimmedPrompt.length > MAX_PROMPT_LENGTH) {
+    throw new Error(`Prompt must be ${MAX_PROMPT_LENGTH} characters or fewer`);
+  }
+
+  if (!ALLOWED_TYPES.has(type)) {
+    throw new Error("Invalid image type");
+  }
+
   const response = await fetch(backendUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ prompt, type }),
+    body: JSON.stringify({ prompt: trimmedPrompt, type }),
   });
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Invalid response from server");
+  }
 
   if (!response.ok) {
-    throw new Error(data.message || "Failed to generate image");
+    throw new Error(data?.message || "Failed to generate image");
+  }
+
+  if (!data?.photo) {
+    throw new Error("No image was returned from server");
   }
 
   return data;
 }
 
+const isBackendConfigError = (message = "") =>
+  message.includes("HUGGINGFACE_API_KEY") ||
+  message.includes("OPENAI_API_KEY") ||
+  message.includes("Pollinations") ||
+  message.includes("Hugging Face authentication failed") ||
+  message.includes("was not found or has no inference provider") ||
+  message.includes("does not support text-to-image") ||
+  message.includes("Access to") ||
+  message.includes("Model is loading");
+
 export async function generateAIImage(backendUrl, prompt, type = "logo") {
   try {
     return await generateFromBackend(backendUrl, prompt, type);
   } catch (backendError) {
-    const skipBackendLog =
-      backendError.message?.includes("HUGGINGFACE_API_KEY") ||
-      backendError.message?.includes("Pollinations");
-
-    if (!skipBackendLog) {
-      console.warn("Backend unavailable, using browser AI:", backendError.message);
+    if (isBackendConfigError(backendError.message)) {
+      throw backendError;
     }
 
-    return generateFromPuter(prompt, type);
+    console.warn("Backend unavailable:", backendError.message);
+    throw backendError;
   }
 }

@@ -12,7 +12,7 @@ const AIPicker = ({ open, prompt, setPrompt, generatingImg, handleSubmit }) => {
           <textarea
             placeholder="Ask AI... e.g. create a cat logo"
             rows={5}
-            value={prompt}
+            value={prompt ? prompt : 'create sunrise logo'}
             onChange={(e) => setPrompt(e.target.value)}
             className="aipicker-textarea"
           />
